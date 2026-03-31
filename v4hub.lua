@@ -1,6 +1,8 @@
 --[[
-    AIM ASSIST - VERSÃO ESTÁVEL COM TRATAMENTO DE ERROS
-    Se a GUI não abrir, veja o console do executor (F9) para mensagens de erro.
+    AIM ASSIST - GUI ESTILO SYREXGENESIS (CORREÇÕES FINAIS)
+    - Whitelist: laranja (prioridade máxima)
+    - Time acima da cabeça: negrito, tamanho 14
+    - Aimbot, ESP, FOV, GUI completa
 --]]
 
 local Players = game:GetService("Players")
@@ -71,9 +73,10 @@ local function createESP(plr)
     e.Distance.Size = 13
     e.Distance.Center = true
     e.Distance.Outline = true
-    e.TeamText.Size = 12
+    e.TeamText.Size = 14
     e.TeamText.Center = true
     e.TeamText.Outline = true
+    e.TeamText.Font = Drawing.Fonts.UI  -- negrito
 end
 
 for _, p in ipairs(Players:GetPlayers()) do createESP(p) end
@@ -105,6 +108,7 @@ local function isDead(plr)
     return humanoid.Health <= 0
 end
 
+-- Cores: prioridade máxima para whitelist (laranja)
 local function getESPColor(plr)
     if isDead(plr) then return Color3.fromRGB(128, 128, 128) end
     if Whitelist[plr.Name:lower()] then return Color3.fromRGB(255, 165, 0) end
@@ -569,7 +573,7 @@ local function updateWhitelistDisplay(listFrame)
     listFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset + 10)
 end
 
--- ==================== CONSTRUÇÃO DA GUI COM TRATAMENTO DE ERRO ====================
+-- Construção da GUI
 local function buildGUI()
     if ScreenGui and ScreenGui.Parent then
         if MainFrame then MainFrame.Visible = true end
@@ -779,7 +783,6 @@ local function buildGUI()
     if not success then
         warn("Erro ao criar GUI: " .. tostring(err))
         print("Erro detalhado:", err)
-        -- Tenta criar uma GUI mínima como fallback
         local fallbackGui = Instance.new("ScreenGui")
         fallbackGui.Name = "FallbackGUI"
         fallbackGui.Parent = PlayerGui
@@ -801,7 +804,6 @@ local function buildGUI()
     end
 end
 
--- Inicia a GUI
 buildGUI()
 
 -- ==================== INPUT ====================
@@ -831,7 +833,6 @@ end)
 
 -- ==================== LOOP PRINCIPAL ====================
 RunService.RenderStepped:Connect(function()
-    -- FOV
     if fovCircle then
         local mousePos = UserInputService:GetMouseLocation()
         fovCircle.Position = mousePos
@@ -855,9 +856,7 @@ RunService.RenderStepped:Connect(function()
 
                 local color = getESPColor(plr)
                 local distanceText = SHOW_DISTANCE and (math.floor(dist) .. "m") or ""
-                if isDead(plr) then
-                    distanceText = "Morto"
-                end
+                if isDead(plr) then distanceText = "Morto" end
 
                 if visible then
                     local top = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3.5, 0))
@@ -895,7 +894,7 @@ RunService.RenderStepped:Connect(function()
                         esp.TeamText.Visible = false
                     end
                 else
-                    -- Fora da tela: indicador na borda (opcional, mas mantido)
+                    -- Fora da tela: indicador na borda (opcional)
                     local direction = (hrp.Position - Camera.CFrame.Position).unit
                     local angle = math.atan2(direction.Y, direction.X)
                     local edgeX = centerX + math.cos(angle) * (viewportX / 2)
@@ -942,7 +941,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Aimbot
     local target = getClosestToMouseFOV()
     if target then
         Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
