@@ -1,8 +1,10 @@
 --[[
-    AIM ASSIST - GUI ESTILO SYREXGENESIS (CORREÇÕES FINAIS)
-    - Whitelist: laranja (prioridade máxima)
-    - Time acima da cabeça: negrito, tamanho 14
-    - Aimbot, ESP, FOV, GUI completa
+    AIM ASSIST - GUI ESTILO SYREXGENESIS (ESP APENAS NA TELA)
+    - ESP só aparece quando o jogador está visível na câmera
+    - Aimbot (head, pescoço, peito, pernas) com Team Check e Whitelist
+    - Cores: laranja (whitelist), verde (time), amarelo (polícias), vermelho (inimigos)
+    - Time acima da cabeça em negrito
+    - GUI arrastável, redimensionável, sem botão LOAD
 --]]
 
 local Players = game:GetService("Players")
@@ -831,8 +833,9 @@ LocalPlayer.CharacterAdded:Connect(function()
     Camera = Workspace.CurrentCamera
 end)
 
--- ==================== LOOP PRINCIPAL ====================
+-- ==================== LOOP PRINCIPAL (ESP APENAS NA TELA) ====================
 RunService.RenderStepped:Connect(function()
+    -- FOV
     if fovCircle then
         local mousePos = UserInputService:GetMouseLocation()
         fovCircle.Position = mousePos
@@ -841,8 +844,7 @@ RunService.RenderStepped:Connect(function()
         fovCircle.Transparency = FOV_TRANSPARENCY
     end
 
-    local viewportX, viewportY = Camera.ViewportSize.X, Camera.ViewportSize.Y
-    local centerX, centerY = viewportX / 2, viewportY / 2
+    local centerX, centerY = Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2
 
     for plr, esp in pairs(ESPs) do
         local char = plr.Character
@@ -850,40 +852,46 @@ RunService.RenderStepped:Connect(function()
             local hrp = char.HumanoidRootPart
             local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
 
+            -- Só desenha se o jogador estiver dentro da distância E visível na tela
             if dist <= ESP_DISTANCE then
                 local vec, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                local screenX, screenY, visible = vec.X, vec.Y, (onScreen and vec.Z > 0)
+                if onScreen and vec.Z > 0 then
+                    local screenX, screenY = vec.X, vec.Y
 
-                local color = getESPColor(plr)
-                local distanceText = SHOW_DISTANCE and (math.floor(dist) .. "m") or ""
-                if isDead(plr) then distanceText = "Morto" end
+                    local color = getESPColor(plr)
+                    local distanceText = SHOW_DISTANCE and (math.floor(dist) .. "m") or ""
+                    if isDead(plr) then distanceText = "Morto" end
 
-                if visible then
                     local top = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3.5, 0))
                     local bottom = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3.5, 0))
                     local height = math.abs(top.Y - bottom.Y)
                     local width = height * 0.6
 
+                    -- Box
                     esp.Box.Size = Vector2.new(width, height)
                     esp.Box.Position = Vector2.new(screenX - width/2, screenY - height/2)
                     esp.Box.Color = color
                     esp.Box.Visible = ESP_ENABLED
 
+                    -- Linha
                     esp.Line.From = Vector2.new(centerX, centerY)
                     esp.Line.To = Vector2.new(screenX, screenY)
                     esp.Line.Color = color
                     esp.Line.Visible = ESPLINE_ENABLED
 
+                    -- Nome
                     esp.Name.Text = SHOW_NAME and plr.Name or ""
                     esp.Name.Position = Vector2.new(screenX, screenY - height/2 - 25)
                     esp.Name.Color = color
                     esp.Name.Visible = ESP_ENABLED and SHOW_NAME
 
+                    -- Distância / Morto
                     esp.Distance.Text = distanceText
                     esp.Distance.Position = Vector2.new(screenX, screenY - height/2 - 8)
                     esp.Distance.Color = isDead(plr) and Color3.fromRGB(100, 150, 255) or color
                     esp.Distance.Visible = ESP_ENABLED and (SHOW_DISTANCE or isDead(plr))
 
+                    -- Time acima da cabeça
                     if SHOW_TEAM and not isDead(plr) then
                         local teamName = getPlayerTeamName(plr)
                         esp.TeamText.Text = teamName
@@ -894,46 +902,11 @@ RunService.RenderStepped:Connect(function()
                         esp.TeamText.Visible = false
                     end
                 else
-                    -- Fora da tela: indicador na borda (opcional)
-                    local direction = (hrp.Position - Camera.CFrame.Position).unit
-                    local angle = math.atan2(direction.Y, direction.X)
-                    local edgeX = centerX + math.cos(angle) * (viewportX / 2)
-                    local edgeY = centerY + math.sin(angle) * (viewportY / 2)
-                    edgeX = math.clamp(edgeX, 10, viewportX - 10)
-                    edgeY = math.clamp(edgeY, 10, viewportY - 10)
-
-                    local boxSize = 20
-                    esp.Box.Size = Vector2.new(boxSize, boxSize)
-                    esp.Box.Position = Vector2.new(edgeX - boxSize/2, edgeY - boxSize/2)
-                    esp.Box.Color = color
-                    esp.Box.Visible = ESP_ENABLED
-
-                    esp.Line.From = Vector2.new(centerX, centerY)
-                    esp.Line.To = Vector2.new(edgeX, edgeY)
-                    esp.Line.Color = color
-                    esp.Line.Visible = ESPLINE_ENABLED
-
-                    esp.Name.Text = SHOW_NAME and plr.Name or ""
-                    esp.Name.Position = Vector2.new(edgeX, edgeY - 20)
-                    esp.Name.Color = color
-                    esp.Name.Visible = ESP_ENABLED and SHOW_NAME
-
-                    esp.Distance.Text = distanceText
-                    esp.Distance.Position = Vector2.new(edgeX, edgeY + 10)
-                    esp.Distance.Color = isDead(plr) and Color3.fromRGB(100, 150, 255) or color
-                    esp.Distance.Visible = ESP_ENABLED and (SHOW_DISTANCE or isDead(plr))
-
-                    if SHOW_TEAM and not isDead(plr) then
-                        local teamName = getPlayerTeamName(plr)
-                        esp.TeamText.Text = teamName
-                        esp.TeamText.Position = Vector2.new(edgeX, edgeY - 40)
-                        esp.TeamText.Color = color
-                        esp.TeamText.Visible = ESP_ENABLED
-                    else
-                        esp.TeamText.Visible = false
-                    end
+                    -- Se não estiver visível na tela, esconde tudo
+                    for _, obj in pairs(esp) do obj.Visible = false end
                 end
             else
+                -- Fora da distância, esconde
                 for _, obj in pairs(esp) do obj.Visible = false end
             end
         else
@@ -941,6 +914,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
+    -- Aimbot
     local target = getClosestToMouseFOV()
     if target then
         Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
