@@ -1,10 +1,16 @@
 --[[
-    AIM ASSIST - GUI ESTILO SYREXGENESIS (VERSÃO FINAL ESTÁVEL)
+    AIM ASSIST - GUI ESTILO SYREXGENESIS COM WHITELIST E DETECÇÃO DE MORTOS (SEM LOAD)
     Funcionalidades:
     - Aimbot (head, pescoço, peito, pernas) com Team Check e Whitelist
-    - ESP wallhack com indicador na borda da tela (off-screen)
-    - FOV circular que segue o mouse (tamanho e transparência)
-    - GUI arrastável, redimensionável, sem botão LOAD
+    - ESP wallhack com indicação de jogadores mortos
+    - FOV circular que segue o mouse (tamanho e transparência ajustáveis)
+    - GUI arrastável, redimensionável
+    - Cores do ESP:
+        - Time (mesmo time ou facção bloqueada) → Verde
+        - Whitelist → Laranja (RGB 255,140,0)
+        - Outras polícias (facções bloqueadas que não são do time) → Amarelo (RGB 255,255,0)
+        - Inimigos comuns → Vermelho
+        - Mortos → Cinza
 --]]
 
 local Players = game:GetService("Players")
@@ -17,6 +23,7 @@ local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Mouse = LocalPlayer:GetMouse()
 
 -- ==================== CONFIGURAÇÕES ====================
 local AIMBOT_ENABLED = false
@@ -29,12 +36,12 @@ local TEAMCHECK_ENABLED = false
 local HOLDING_AIM = false
 
 local AIMBOT_TARGET = "head"          -- "head", "pescoço", "peito", "pernas"
-local FOV_RADIUS = 150
-local FOV_TRANSPARENCY = 0.5
-local ESP_DISTANCE = 200
+local FOV_RADIUS = 150                -- tamanho do círculo do FOV
+local FOV_TRANSPARENCY = 0.5          -- 0 = invisível, 1 = opaco
+local ESP_DISTANCE = 200              -- distância máxima do ESP (padrão 200, máximo 1500)
 
 -- Whitelist (nomes em minúsculo)
-local Whitelist = {}
+local Whitelist = {}                  -- conjunto de nomes que o aimbot ignora
 
 -- ==================== DRAWING OBJECTS ====================
 local fovCircle
@@ -101,6 +108,7 @@ end
 
 local BLOCKED_TEAMS = {"pm", "pmerj", "bope", "choque", "prf", "pf", "pc", "gcm", "eb", "exército", "polícia militar", "polícia federal", "polícia civil"}
 
+-- Verifica se o jogador está morto
 local function isDead(plr)
     if not plr or not plr.Character then return true end
     local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
@@ -108,29 +116,40 @@ local function isDead(plr)
     return humanoid.Health <= 0
 end
 
-local function shouldIgnoreForAimbot(plr)
-    if not plr or plr == LocalPlayer then return true end
-    if isDead(plr) then return true end
-    if Whitelist[plr.Name:lower()] then return true end
-    if TEAMCHECK_ENABLED then
-        if plr.Team == LocalPlayer.Team then return true end
-        local leaderstats = plr:FindFirstChild("leaderstats")
-        if leaderstats then
-            for _, stat in ipairs(leaderstats:GetChildren()) do
-                if (stat.Name:lower():find("fac") or stat.Name:lower():find("job") or stat.Name:lower():find("fação")) then
-                    local val = tostring(stat.Value):lower()
-                    for _, kw in ipairs(BLOCKED_TEAMS) do
-                        if val:find(kw) then return true end
-                    end
+-- Função auxiliar para verificar se o jogador pertence a uma facção bloqueada (mesmo sem Team Check ativo)
+local function isBlockedFaction(plr)
+    if not plr then return false end
+    local leaderstats = plr:FindFirstChild("leaderstats")
+    if leaderstats then
+        for _, stat in ipairs(leaderstats:GetChildren()) do
+            if (stat.Name:lower():find("fac") or stat.Name:lower():find("job") or stat.Name:lower():find("fação")) then
+                local val = tostring(stat.Value):lower()
+                for _, kw in ipairs(BLOCKED_TEAMS) do
+                    if val:find(kw) then return true end
                 end
             end
         end
-        if plr.Team then
-            local teamName = tostring(plr.Team):lower()
-            for _, kw in ipairs(BLOCKED_TEAMS) do
-                if teamName:find(kw) then return true end
-            end
+    end
+    if plr.Team then
+        local teamName = tostring(plr.Team):lower()
+        for _, kw in ipairs(BLOCKED_TEAMS) do
+            if teamName:find(kw) then return true end
         end
+    end
+    return false
+end
+
+-- Função que verifica se um jogador deve ser bloqueado pelo aimbot (não alvejado)
+local function shouldIgnoreForAimbot(plr)
+    if not plr or plr == LocalPlayer then return true end
+    -- Ignora mortos
+    if isDead(plr) then return true end
+    -- Whitelist tem prioridade máxima
+    if Whitelist[plr.Name:lower()] then return true end
+    -- Team Check
+    if TEAMCHECK_ENABLED then
+        if plr.Team == LocalPlayer.Team then return true end
+        if isBlockedFaction(plr) then return true end
     end
     return false
 end
@@ -171,12 +190,13 @@ local function getClosestToMouseFOV()
     return closest
 end
 
--- ==================== GUI ====================
+-- ==================== GUI ESTILO SYREXGENESIS ====================
 local ScreenGui, MainFrame, TitleBar
 local selectedCard = nil
 local aimbotTab, espTab, fovTab, whitelistTab
 local currentSize = {Width = 878, Height = 550}
 
+-- Cores do tema
 local bgColor = Color3.fromRGB(17, 18, 20)
 local cardColor = Color3.fromRGB(27, 29, 37)
 local accentColor = Color3.fromRGB(140, 155, 208)
@@ -199,7 +219,7 @@ local function createStroke(instance, thickness, color)
     return stroke
 end
 
--- Card lateral
+-- Cria um card lateral
 local function createCard(parent, name, yPos, callback)
     local card = Instance.new("Frame")
     card.Size = UDim2.new(0, 330, 0, 65)
@@ -238,7 +258,7 @@ local function createCard(parent, name, yPos, callback)
     return card
 end
 
--- Toggle button
+-- Botão de toggle (ON/OFF)
 local function createToggleButton(parent, text, yOffset, initialState, callback)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 280, 0, 50)
@@ -360,7 +380,7 @@ local function createDropdown(parent, text, yOffset, options, currentValue, call
     return frame
 end
 
--- Slider
+-- Slider (tamanho e transparência)
 local function createSlider(parent, text, yOffset, minVal, maxVal, currentVal, callback, isFloat)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 280, 0, 55)
@@ -491,7 +511,7 @@ local function createResizeButtons(parent)
     end)
 end
 
--- Whitelist display
+-- Função para atualizar a lista de jogadores na aba WHITELIST
 local function updateWhitelistDisplay(listFrame)
     for _, child in ipairs(listFrame:GetChildren()) do child:Destroy() end
 
@@ -527,7 +547,7 @@ local function updateWhitelistDisplay(listFrame)
             nameLabel.Position = UDim2.new(0, 10, 0, 0)
             nameLabel.BackgroundTransparency = 1
             nameLabel.Text = plr.Name
-            nameLabel.TextColor3 = isWhitelisted and Color3.fromRGB(0, 255, 0) or textColor
+            nameLabel.TextColor3 = isWhitelisted and Color3.fromRGB(255, 140, 0) or textColor
             nameLabel.Font = Enum.Font.Gotham
             nameLabel.TextSize = 14
             nameLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -602,6 +622,7 @@ local function buildGUI()
     TitleBar.Size = UDim2.new(1, 0, 0, 50)
     TitleBar.BackgroundTransparency = 1
     TitleBar.Parent = MainFrame
+
     createResizeButtons(TitleBar)
 
     local cardsContainer = Instance.new("Frame")
@@ -680,9 +701,11 @@ local function buildGUI()
     createToggleButton(aimbotTab, "Aimbot", 30, AIMBOT_ENABLED, function(state)
         AIMBOT_ENABLED = state
     end)
+
     createToggleButton(aimbotTab, "Team Check", 100, TEAMCHECK_ENABLED, function(state)
         TEAMCHECK_ENABLED = state
     end)
+
     createDropdown(aimbotTab, "Puxar para:", 170, {"head", "pescoço", "peito", "pernas"}, AIMBOT_TARGET, function(val)
         AIMBOT_TARGET = val
     end)
@@ -691,15 +714,19 @@ local function buildGUI()
     createToggleButton(espTab, "ESP", 30, ESP_ENABLED, function(state)
         ESP_ENABLED = state
     end)
+
     createToggleButton(espTab, "Nome", 100, SHOW_NAME, function(state)
         SHOW_NAME = state
     end)
+
     createToggleButton(espTab, "Distância", 170, SHOW_DISTANCE, function(state)
         SHOW_DISTANCE = state
     end)
+
     createToggleButton(espTab, "Linhas", 240, ESPLINE_ENABLED, function(state)
         ESPLINE_ENABLED = state
     end)
+
     createSlider(espTab, "Distância ESP", 310, 50, 1500, ESP_DISTANCE, function(val)
         ESP_DISTANCE = val
     end)
@@ -709,10 +736,12 @@ local function buildGUI()
         FOV_ENABLED = state
         if fovCircle then fovCircle.Visible = state end
     end)
+
     createSlider(fovTab, "Tamanho do FOV", 100, 50, 300, FOV_RADIUS, function(val)
         FOV_RADIUS = val
         if fovCircle then fovCircle.Radius = val end
     end)
+
     createSlider(fovTab, "Transparência", 170, 0, 1, FOV_TRANSPARENCY, function(val)
         FOV_TRANSPARENCY = val
         if fovCircle then fovCircle.Transparency = val end
@@ -744,6 +773,7 @@ local function buildGUI()
     refreshBtn.MouseButton1Click:Connect(function()
         updateWhitelistDisplay(listFrame)
     end)
+
     updateWhitelistDisplay(listFrame)
 
     -- Botão fechar (X)
@@ -826,7 +856,7 @@ end)
 
 -- ==================== LOOP PRINCIPAL ====================
 RunService.RenderStepped:Connect(function()
-    -- FOV
+    -- Atualizar FOV seguindo o mouse
     if fovCircle then
         local mousePos = UserInputService:GetMouseLocation()
         fovCircle.Position = mousePos
@@ -835,9 +865,7 @@ RunService.RenderStepped:Connect(function()
         fovCircle.Transparency = FOV_TRANSPARENCY
     end
 
-    local viewportX, viewportY = Camera.ViewportSize.X, Camera.ViewportSize.Y
-    local centerX, centerY = viewportX / 2, viewportY / 2
-
+    -- ESP (wallhack)
     for plr, esp in pairs(ESPs) do
         local char = plr.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
@@ -846,91 +874,63 @@ RunService.RenderStepped:Connect(function()
 
             if dist <= ESP_DISTANCE then
                 local vec, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                local screenX, screenY, visible = vec.X, vec.Y, (onScreen and vec.Z > 0)
-
-                -- Determina cor e texto
-                local color
-                local distanceText = SHOW_DISTANCE and (math.floor(dist) .. "m") or ""
-                if isDead(plr) then
-                    color = Color3.fromRGB(128, 128, 128)
-                    distanceText = "Morto"
-                elseif Whitelist[plr.Name:lower()] then
-                    color = Color3.fromRGB(0, 255, 0)
-                elseif TEAMCHECK_ENABLED and (plr.Team == LocalPlayer.Team or (function()
-                    local leaderstats = plr:FindFirstChild("leaderstats")
-                    if leaderstats then
-                        for _, stat in ipairs(leaderstats:GetChildren()) do
-                            if (stat.Name:lower():find("fac") or stat.Name:lower():find("job")) then
-                                local val = tostring(stat.Value):lower()
-                                for _, kw in ipairs(BLOCKED_TEAMS) do
-                                    if val:find(kw) then return true end
-                                end
-                            end
-                        end
-                    end
-                    return false
-                end)()) then
-                    color = Color3.fromRGB(0, 255, 120)
-                else
-                    color = Color3.fromRGB(255, 60, 60)
-                end
-
-                if visible then
-                    -- Na tela: caixa normal
+                if onScreen and vec.Z > 0 then
                     local top = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3.5, 0))
                     local bottom = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3.5, 0))
                     local height = math.abs(top.Y - bottom.Y)
                     local width = height * 0.6
 
+                    -- Determina cor e texto da distância
+                    local color
+                    local distanceText = SHOW_DISTANCE and (math.floor(dist) .. "m") or ""
+                    
+                    if isDead(plr) then
+                        color = Color3.fromRGB(128, 128, 128) -- cinza para mortos
+                        distanceText = "Morto"
+                    elseif Whitelist[plr.Name:lower()] then
+                        color = Color3.fromRGB(255, 140, 0) -- laranja para whitelist
+                    else
+                        -- Verifica se é do time ou facção bloqueada
+                        local isTeam = false
+                        if TEAMCHECK_ENABLED then
+                            if plr.Team == LocalPlayer.Team then
+                                isTeam = true
+                            elseif isBlockedFaction(plr) then
+                                isTeam = true
+                            end
+                        end
+                        
+                        if isTeam then
+                            color = Color3.fromRGB(0, 255, 0) -- verde para time
+                        elseif isBlockedFaction(plr) then
+                            -- Se a facção é bloqueada mas não é do time (ex: outra polícia)
+                            color = Color3.fromRGB(255, 255, 0) -- amarelo
+                        else
+                            color = Color3.fromRGB(255, 60, 60) -- vermelho para inimigos
+                        end
+                    end
+
                     esp.Box.Size = Vector2.new(width, height)
-                    esp.Box.Position = Vector2.new(screenX - width/2, screenY - height/2)
+                    esp.Box.Position = Vector2.new(vec.X - width/2, vec.Y - height/2)
                     esp.Box.Color = color
                     esp.Box.Visible = ESP_ENABLED
 
-                    esp.Line.From = Vector2.new(centerX, centerY)
-                    esp.Line.To = Vector2.new(screenX, screenY)
+                    esp.Line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+                    esp.Line.To = Vector2.new(vec.X, vec.Y)
                     esp.Line.Color = color
                     esp.Line.Visible = ESPLINE_ENABLED
 
                     esp.Name.Text = SHOW_NAME and plr.Name or ""
-                    esp.Name.Position = Vector2.new(screenX, screenY - height/2 - 25)
+                    esp.Name.Position = Vector2.new(vec.X, vec.Y - height/2 - 25)
                     esp.Name.Color = color
                     esp.Name.Visible = ESP_ENABLED and SHOW_NAME
 
                     esp.Distance.Text = distanceText
-                    esp.Distance.Position = Vector2.new(screenX, screenY - height/2 - 8)
-                    esp.Distance.Color = isDead(plr) and Color3.fromRGB(100, 150, 255) or color
+                    esp.Distance.Position = Vector2.new(vec.X, vec.Y - height/2 - 8)
+                    esp.Distance.Color = isDead(plr) and Color3.fromRGB(100, 150, 255) or color -- azul para "Morto"
                     esp.Distance.Visible = ESP_ENABLED and (SHOW_DISTANCE or isDead(plr))
                 else
-                    -- Fora da tela: indicador na borda (sem suavização)
-                    local direction = (hrp.Position - Camera.CFrame.Position).unit
-                    local angle = math.atan2(direction.Y, direction.X)
-                    local edgeX = centerX + math.cos(angle) * (viewportX / 2)
-                    local edgeY = centerY + math.sin(angle) * (viewportY / 2)
-
-                    edgeX = math.clamp(edgeX, 10, viewportX - 10)
-                    edgeY = math.clamp(edgeY, 10, viewportY - 10)
-
-                    local boxSize = 20
-                    esp.Box.Size = Vector2.new(boxSize, boxSize)
-                    esp.Box.Position = Vector2.new(edgeX - boxSize/2, edgeY - boxSize/2)
-                    esp.Box.Color = color
-                    esp.Box.Visible = ESP_ENABLED
-
-                    esp.Line.From = Vector2.new(centerX, centerY)
-                    esp.Line.To = Vector2.new(edgeX, edgeY)
-                    esp.Line.Color = color
-                    esp.Line.Visible = ESPLINE_ENABLED
-
-                    esp.Name.Text = SHOW_NAME and plr.Name or ""
-                    esp.Name.Position = Vector2.new(edgeX, edgeY - 20)
-                    esp.Name.Color = color
-                    esp.Name.Visible = ESP_ENABLED and SHOW_NAME
-
-                    esp.Distance.Text = distanceText
-                    esp.Distance.Position = Vector2.new(edgeX, edgeY + 10)
-                    esp.Distance.Color = isDead(plr) and Color3.fromRGB(100, 150, 255) or color
-                    esp.Distance.Visible = ESP_ENABLED and (SHOW_DISTANCE or isDead(plr))
+                    for _, obj in pairs(esp) do obj.Visible = false end
                 end
             else
                 for _, obj in pairs(esp) do obj.Visible = false end
@@ -940,7 +940,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Aimbot
+    -- Aimbot com FOV baseado no mouse (respeita whitelist e mortos)
     local target = getClosestToMouseFOV()
     if target then
         Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
