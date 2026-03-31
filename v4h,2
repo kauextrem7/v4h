@@ -1,14 +1,5 @@
 --[[
-    AIM ASSIST - VERSÃO FINAL COMPLETA
-    Funcionalidades:
-    - Aimbot com escolha de parte do corpo, suavização opcional
-    - Modos: Hold (segurar) ou Toggle (pressionar para ligar/desligar)
-    - Tecla configurável (mouse ou teclado)
-    - ESP apenas na tela (evita travamentos)
-    - Whitelist visual com lista de jogadores
-    - Time acima da cabeça em negrito
-    - FOV que segue o mouse
-    - GUI arrastável, redimensionável
+    AIM ASSIST - VERSÃO FINAL CORRIGIDA (COM ESPAÇAMENTO CORRETO NA ABA SETTINGS)
 --]]
 
 local Players = game:GetService("Players")
@@ -24,8 +15,8 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- ==================== CONFIGURAÇÕES ====================
 local AIMBOT_ENABLED = false
-local AIMBOT_MODE = "Hold"          -- "Hold" ou "Toggle"
-local AIMBOT_KEY = "MouseButton2"   -- padrão: botão direito
+local AIMBOT_MODE = "Hold"            -- "Hold" ou "Toggle"
+local AIMBOT_KEY = "MouseButton2"     -- padrão: botão direito
 local SMOOTH_AIM = false
 local SMOOTH_SPEED = 0.3
 local ESP_ENABLED = false
@@ -36,14 +27,13 @@ local ESPLINE_ENABLED = false
 local FOV_ENABLED = false
 local TEAMCHECK_ENABLED = false
 
-local AIMBOT_TARGET = "head"        -- head, pescoço, peito, pernas
+local AIMBOT_TARGET = "head"          -- head, pescoço, peito, pernas
 local FOV_RADIUS = 150
 local FOV_TRANSPARENCY = 0.5
 local ESP_DISTANCE = 200
 
 local Whitelist = {}
 
--- Estados internos para os modos
 local HOLDING_AIM = false
 local TOGGLE_ACTIVE = false
 
@@ -89,7 +79,7 @@ local function createESP(plr)
     e.TeamText.Size = 14
     e.TeamText.Center = true
     e.TeamText.Outline = true
-    e.TeamText.Font = Drawing.Fonts.UI  -- negrito
+    e.TeamText.Font = Drawing.Fonts.UI
 end
 
 for _, p in ipairs(Players:GetPlayers()) do createESP(p) end
@@ -123,16 +113,16 @@ end
 
 local function getESPColor(plr)
     if isDead(plr) then return Color3.fromRGB(128, 128, 128) end
-    if Whitelist[plr.Name:lower()] then return Color3.fromRGB(255, 165, 0) end  -- laranja
+    if Whitelist[plr.Name:lower()] then return Color3.fromRGB(255, 165, 0) end
     if TEAMCHECK_ENABLED then
-        if plr.Team == LocalPlayer.Team then return Color3.fromRGB(0, 255, 0) end  -- verde
+        if plr.Team == LocalPlayer.Team then return Color3.fromRGB(0, 255, 0) end
         local leaderstats = plr:FindFirstChild("leaderstats")
         if leaderstats then
             for _, stat in ipairs(leaderstats:GetChildren()) do
                 if (stat.Name:lower():find("fac") or stat.Name:lower():find("job") or stat.Name:lower():find("fação")) then
                     local val = tostring(stat.Value):lower()
                     for _, kw in ipairs(BLOCKED_TEAMS) do
-                        if val:find(kw) then return Color3.fromRGB(255, 255, 0) end  -- amarelo
+                        if val:find(kw) then return Color3.fromRGB(255, 255, 0) end
                     end
                 end
             end
@@ -143,7 +133,7 @@ local function getESPColor(plr)
                 if teamName:find(kw) then return Color3.fromRGB(255, 255, 0) end
             end
         end
-        return Color3.fromRGB(255, 60, 60)  -- vermelho
+        return Color3.fromRGB(255, 60, 60)
     else
         return Color3.fromRGB(255, 60, 60)
     end
@@ -793,19 +783,17 @@ local function buildGUI()
         end)
         updateWhitelistDisplay(listFrame)
 
-        -- SETTINGS TAB
-        local modeOptions = {"Hold", "Toggle"}
-        createDropdown(settingsTab, "Modo do Aimbot", 30, modeOptions, AIMBOT_MODE, function(val)
+        -- SETTINGS TAB (espaçamento corrigido)
+        createDropdown(settingsTab, "Modo do Aimbot", 30, {"Hold", "Toggle"}, AIMBOT_MODE, function(val)
             AIMBOT_MODE = val
             HOLDING_AIM = false
             TOGGLE_ACTIVE = false
         end)
 
-        local keyOptions = {
+        createDropdown(settingsTab, "Tecla do Aimbot", 120, {
             "MouseButton2", "MouseButton1", "MouseButton3",
             "Q", "E", "R", "F", "LeftShift", "LeftControl", "LeftAlt", "C"
-        }
-        createDropdown(settingsTab, "Tecla do Aimbot", 110, keyOptions, AIMBOT_KEY, function(val)
+        }, AIMBOT_KEY, function(val)
             AIMBOT_KEY = val
         end)
 
@@ -883,7 +871,7 @@ end
 
 buildGUI()
 
--- ==================== INPUT (configurável) ====================
+-- ==================== INPUT ====================
 local function getInputObjectFromKey(keyString)
     if keyString:find("MouseButton") then
         local btnNum = tonumber(keyString:match("MouseButton(%d)"))
@@ -899,7 +887,7 @@ local function getInputObjectFromKey(keyString)
 end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
+    -- Ignora gameProcessed para a tecla do aimbot, mas mantém para o RightShift (para não atrapalhar a GUI)
     if input.KeyCode == Enum.KeyCode.RightShift then
         if MainFrame then
             MainFrame.Visible = not MainFrame.Visible
