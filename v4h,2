@@ -1,10 +1,11 @@
 --[[
-    AIM ASSIST - GUI ESTILO SYREXGENESIS (COM AIMBOT SUAVE)
-    - Aimbot com suavização opcional (movimento suave)
+    AIM ASSIST - GUI ESTILO SYREXGENESIS (COM AIMBOT SUAVE + F7 EMERGÊNCIA)
+    - Aimbot suave opcional
     - ESP apenas na tela
     - Cores: laranja (whitelist), verde (time), amarelo (polícias), vermelho (inimigos)
     - Time acima da cabeça em negrito
     - GUI arrastável, redimensionável
+    - Tecla F7: desliga/liga instantaneamente ESP, aimbot, FOV e GUI
 --]]
 
 local Players = game:GetService("Players")
@@ -20,8 +21,8 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- ==================== CONFIGURAÇÕES ====================
 local AIMBOT_ENABLED = false
-local SMOOTH_AIM = false          -- <--- NOVO: ativa suavização
-local SMOOTH_SPEED = 0.3          -- <--- NOVO: velocidade (0.05 = muito lento, 1 = instantâneo)
+local SMOOTH_AIM = false
+local SMOOTH_SPEED = 0.3
 local ESP_ENABLED = false
 local SHOW_NAME = true
 local SHOW_DISTANCE = true
@@ -37,6 +38,15 @@ local FOV_TRANSPARENCY = 0.5
 local ESP_DISTANCE = 200
 
 local Whitelist = {}
+
+-- ==================== ESTADOS PARA EMERGÊNCIA ====================
+local emergencyActive = false
+local savedStates = {
+    AIMBOT_ENABLED = false,
+    ESP_ENABLED = false,
+    FOV_ENABLED = false,
+    GUI_VISIBLE = true,        -- por padrão a GUI aparece quando o script inicia
+}
 
 -- ==================== DRAWING OBJECTS ====================
 local fovCircle
@@ -684,7 +694,6 @@ local function buildGUI()
         -- AIMBOT TAB
         createToggleButton(aimbotTab, "Aimbot", 30, AIMBOT_ENABLED, function(state) AIMBOT_ENABLED = state end)
         createToggleButton(aimbotTab, "Team Check", 100, TEAMCHECK_ENABLED, function(state) TEAMCHECK_ENABLED = state end)
-        -- NOVOS CONTROLES PARA AIMBOT SUAVE
         createToggleButton(aimbotTab, "Aimbot Suave", 170, SMOOTH_AIM, function(state) SMOOTH_AIM = state end)
         createSlider(aimbotTab, "Velocidade Suave", 240, 0.05, 1, SMOOTH_SPEED, function(val) SMOOTH_SPEED = val end, true)
         createDropdown(aimbotTab, "Puxar para:", 310, {"head", "pescoço", "peito", "pernas"}, AIMBOT_TARGET, function(val) AIMBOT_TARGET = val end)
@@ -816,13 +825,46 @@ buildGUI()
 -- ==================== INPUT ====================
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
+
+    -- F7: toggle emergência (desliga/liga tudo)
+    if input.KeyCode == Enum.KeyCode.F7 then
+        if not emergencyActive then
+            -- Entrando em modo emergência: salva estado atual e desliga tudo
+            savedStates.AIMBOT_ENABLED = AIMBOT_ENABLED
+            savedStates.ESP_ENABLED = ESP_ENABLED
+            savedStates.FOV_ENABLED = FOV_ENABLED
+            savedStates.GUI_VISIBLE = MainFrame and MainFrame.Visible or true
+
+            AIMBOT_ENABLED = false
+            ESP_ENABLED = false
+            FOV_ENABLED = false
+            if MainFrame then MainFrame.Visible = false end
+
+            emergencyActive = true
+        else
+            -- Saindo do modo emergência: restaura estados
+            AIMBOT_ENABLED = savedStates.AIMBOT_ENABLED
+            ESP_ENABLED = savedStates.ESP_ENABLED
+            FOV_ENABLED = savedStates.FOV_ENABLED
+            if MainFrame then MainFrame.Visible = savedStates.GUI_VISIBLE end
+
+            emergencyActive = false
+        end
+        return
+    end
+
+    -- RightShift: mostrar/esconder GUI (funciona normalmente, respeita o estado de emergência apenas para não reabrir quando emergência ativa? Não, pois emergência já desligou a GUI, mas se o usuário pressionar RightShift durante emergência, ele pode querer reabrir? Vamos permitir, mas aí ele verá a GUI vazia pois os toggles estão desligados. Deixamos como está para não complicar.)
     if input.KeyCode == Enum.KeyCode.RightShift then
         if MainFrame then
             MainFrame.Visible = not MainFrame.Visible
         else
             buildGUI()
         end
-    elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+        return
+    end
+
+    -- Tecla do aimbot (botão direito do mouse)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
         HOLDING_AIM = true
     end
 end)
@@ -838,7 +880,7 @@ LocalPlayer.CharacterAdded:Connect(function()
     Camera = Workspace.CurrentCamera
 end)
 
--- ==================== LOOP PRINCIPAL (ESP APENAS NA TELA + AIMBOT SUAVE) ====================
+-- ==================== LOOP PRINCIPAL ====================
 RunService.RenderStepped:Connect(function()
     -- FOV
     if fovCircle then
@@ -911,7 +953,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Aimbot (com suavização)
+    -- Aimbot
     local target = getClosestToMouseFOV()
     if target then
         local targetCF = CFrame.lookAt(Camera.CFrame.Position, target.Position)
@@ -923,4 +965,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Aim Assist carregado. Pressione SHIFT DIREITO para abrir a GUI.")
+print("Aim Assist carregado. Pressione SHIFT DIREITO para abrir a GUI. F7: desliga/liga tudo instantaneamente.")
