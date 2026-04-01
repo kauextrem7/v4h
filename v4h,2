@@ -1,11 +1,11 @@
 --[[
-    AIM ASSIST - GUI ESTILO SYREXGENESIS (COM AIMBOT SUAVE + F7 EMERGÊNCIA)
+    AIM ASSIST - GUI ESTILO SYREXGENESIS (COM AIMBOT SUAVE + F7 EMERGÊNCIA CORRIGIDO)
     - Aimbot suave opcional
     - ESP apenas na tela
     - Cores: laranja (whitelist), verde (time), amarelo (polícias), vermelho (inimigos)
     - Time acima da cabeça em negrito
     - GUI arrastável, redimensionável
-    - Tecla F7: desliga/liga instantaneamente ESP, aimbot, FOV e GUI
+    - Tecla F7: desliga/liga instantaneamente ESP, aimbot, FOV e GUI (com feedback no console)
 --]]
 
 local Players = game:GetService("Players")
@@ -45,7 +45,7 @@ local savedStates = {
     AIMBOT_ENABLED = false,
     ESP_ENABLED = false,
     FOV_ENABLED = false,
-    GUI_VISIBLE = true,        -- por padrão a GUI aparece quando o script inicia
+    GUI_VISIBLE = true,
 }
 
 -- ==================== DRAWING OBJECTS ====================
@@ -822,38 +822,42 @@ end
 
 buildGUI()
 
--- ==================== INPUT ====================
+-- ==================== INPUT (F7 CORRIGIDO) ====================
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-
-    -- F7: toggle emergência (desliga/liga tudo)
+    -- F7 deve funcionar mesmo se o jogo processar o input (para não ser bloqueado pela GUI)
     if input.KeyCode == Enum.KeyCode.F7 then
         if not emergencyActive then
-            -- Entrando em modo emergência: salva estado atual e desliga tudo
+            -- Salva estado atual
             savedStates.AIMBOT_ENABLED = AIMBOT_ENABLED
             savedStates.ESP_ENABLED = ESP_ENABLED
             savedStates.FOV_ENABLED = FOV_ENABLED
             savedStates.GUI_VISIBLE = MainFrame and MainFrame.Visible or true
 
+            -- Desliga tudo
             AIMBOT_ENABLED = false
             ESP_ENABLED = false
             FOV_ENABLED = false
             if MainFrame then MainFrame.Visible = false end
 
             emergencyActive = true
+            print("[AIM ASSIST] EMERGÊNCIA ATIVADA: Todos os recursos desligados.")
         else
-            -- Saindo do modo emergência: restaura estados
+            -- Restaura estado
             AIMBOT_ENABLED = savedStates.AIMBOT_ENABLED
             ESP_ENABLED = savedStates.ESP_ENABLED
             FOV_ENABLED = savedStates.FOV_ENABLED
             if MainFrame then MainFrame.Visible = savedStates.GUI_VISIBLE end
 
             emergencyActive = false
+            print("[AIM ASSIST] EMERGÊNCIA DESATIVADA: Recursos restaurados.")
         end
         return
     end
 
-    -- RightShift: mostrar/esconder GUI (funciona normalmente, respeita o estado de emergência apenas para não reabrir quando emergência ativa? Não, pois emergência já desligou a GUI, mas se o usuário pressionar RightShift durante emergência, ele pode querer reabrir? Vamos permitir, mas aí ele verá a GUI vazia pois os toggles estão desligados. Deixamos como está para não complicar.)
+    -- Se o input foi processado pela GUI, não prosseguir (exceto F7)
+    if gameProcessed then return end
+
+    -- RightShift: mostrar/esconder GUI
     if input.KeyCode == Enum.KeyCode.RightShift then
         if MainFrame then
             MainFrame.Visible = not MainFrame.Visible
@@ -965,4 +969,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Aim Assist carregado. Pressione SHIFT DIREITO para abrir a GUI. F7: desliga/liga tudo instantaneamente.")
+print("Aim Assist carregado. Pressione SHIFT DIREITO para abrir a GUI. F7: desliga/liga tudo (com feedback no console).")
