@@ -5,7 +5,7 @@
     - Cores: laranja (whitelist), verde (time), amarelo (polícias), vermelho (inimigos)
     - Time acima da cabeça em negrito
     - GUI arrastável, redimensionável
-    - Tecla F7: desliga/liga instantaneamente ESP, aimbot, FOV e FECHA a GUI (ao reativar, a GUI permanece fechada)
+    - Tecla F7: desliga/liga instantaneamente AIMBOT, ESP, LINHAS, FOV e FECHA a GUI
 --]]
 
 local Players = game:GetService("Players")
@@ -24,10 +24,10 @@ local AIMBOT_ENABLED = false
 local SMOOTH_AIM = false
 local SMOOTH_SPEED = 0.3
 local ESP_ENABLED = false
+local ESPLINE_ENABLED = false          -- <--- LINHAS
 local SHOW_NAME = true
 local SHOW_DISTANCE = true
 local SHOW_TEAM = false
-local ESPLINE_ENABLED = false
 local FOV_ENABLED = false
 local TEAMCHECK_ENABLED = false
 local HOLDING_AIM = false
@@ -44,8 +44,8 @@ local emergencyActive = false
 local savedStates = {
     AIMBOT_ENABLED = false,
     ESP_ENABLED = false,
+    ESPLINE_ENABLED = false,   -- <--- incluído
     FOV_ENABLED = false,
-    -- GUI não será restaurada
 }
 
 -- ==================== DRAWING OBJECTS ====================
@@ -90,7 +90,7 @@ local function createESP(plr)
     e.TeamText.Size = 14
     e.TeamText.Center = true
     e.TeamText.Outline = true
-    e.TeamText.Font = Drawing.Fonts.UI  -- negrito
+    e.TeamText.Font = Drawing.Fonts.UI
 end
 
 for _, p in ipairs(Players:GetPlayers()) do createESP(p) end
@@ -122,7 +122,6 @@ local function isDead(plr)
     return humanoid.Health <= 0
 end
 
--- Cores: prioridade máxima para whitelist (laranja)
 local function getESPColor(plr)
     if isDead(plr) then return Color3.fromRGB(128, 128, 128) end
     if Whitelist[plr.Name:lower()] then return Color3.fromRGB(255, 165, 0) end
@@ -227,7 +226,7 @@ local function getPlayerTeamName(plr)
     return ""
 end
 
--- ==================== GUI ====================
+-- ==================== GUI (mesmo código de antes, não alterado) ====================
 local ScreenGui, MainFrame, TitleBar
 local selectedCard = nil
 local aimbotTab, espTab, fovTab, whitelistTab
@@ -822,30 +821,33 @@ end
 
 buildGUI()
 
--- ==================== INPUT (F7 CORRIGIDO - GUI FECHA AO REATIVAR) ====================
+-- ==================== INPUT (F7 CORRIGIDO - LINHAS TAMBÉM SÃO DESLIGADAS) ====================
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     -- F7 deve funcionar mesmo se o jogo processar o input (para não ser bloqueado pela GUI)
     if input.KeyCode == Enum.KeyCode.F7 then
         if not emergencyActive then
-            -- Salva estado atual (exceto GUI)
+            -- Salva estado atual (incluindo linhas)
             savedStates.AIMBOT_ENABLED = AIMBOT_ENABLED
             savedStates.ESP_ENABLED = ESP_ENABLED
+            savedStates.ESPLINE_ENABLED = ESPLINE_ENABLED
             savedStates.FOV_ENABLED = FOV_ENABLED
 
             -- Desliga tudo
             AIMBOT_ENABLED = false
             ESP_ENABLED = false
+            ESPLINE_ENABLED = false
             FOV_ENABLED = false
             if MainFrame then MainFrame.Visible = false end
 
             emergencyActive = true
-            print("[AIM ASSIST] EMERGÊNCIA ATIVADA: Todos os recursos desligados. GUI fechada.")
+            print("[AIM ASSIST] EMERGÊNCIA ATIVADA: Aimbot, ESP, Linhas, FOV desligados. GUI fechada.")
         else
-            -- Restaura aimbot, ESP, FOV, mas NÃO restaura a GUI (ela permanece fechada)
+            -- Restaura aimbot, ESP, linhas, FOV (GUI permanece fechada)
             AIMBOT_ENABLED = savedStates.AIMBOT_ENABLED
             ESP_ENABLED = savedStates.ESP_ENABLED
+            ESPLINE_ENABLED = savedStates.ESPLINE_ENABLED
             FOV_ENABLED = savedStates.FOV_ENABLED
-            -- GUI permanece fechada (não mexemos em MainFrame.Visible)
+            -- GUI não é restaurada
 
             emergencyActive = false
             print("[AIM ASSIST] EMERGÊNCIA DESATIVADA: Recursos restaurados. GUI permanece fechada.")
@@ -968,4 +970,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Aim Assist carregado. Pressione SHIFT DIREITO para abrir a GUI. F7: desliga tudo e fecha GUI; reativar restaura funções, mas GUI permanece fechada.")
+print("Aim Assist carregado. Pressione SHIFT DIREITO para abrir a GUI. F7: desliga/liga AIMBOT, ESP, LINHAS, FOV e fecha GUI (ao reativar, GUI permanece fechada).")
