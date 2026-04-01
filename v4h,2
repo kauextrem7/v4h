@@ -1,5 +1,13 @@
 --[[
-    AIM ASSIST - VERSÃO FINAL CORRIGIDA (COM ESPAÇAMENTO CORRETO NA ABA SETTINGS)
+    AIM ASSIST - VERSÃO FINAL COMPLETA
+    - Modos: Hold (segurar) / Toggle (pressionar para ligar/desligar)
+    - Tecla configurável (mouse ou teclado)
+    - Indicador visual no modo Toggle
+    - Aimbot suave opcional
+    - ESP apenas na tela
+    - Whitelist visual com lista de jogadores
+    - FOV que segue o mouse
+    - GUI arrastável, redimensionável
 --]]
 
 local Players = game:GetService("Players")
@@ -27,7 +35,7 @@ local ESPLINE_ENABLED = false
 local FOV_ENABLED = false
 local TEAMCHECK_ENABLED = false
 
-local AIMBOT_TARGET = "head"          -- head, pescoço, peito, pernas
+local AIMBOT_TARGET = "head"
 local FOV_RADIUS = 150
 local FOV_TRANSPARENCY = 0.5
 local ESP_DISTANCE = 200
@@ -51,6 +59,24 @@ do
         fovCircle.Transparency = FOV_TRANSPARENCY
     else
         fovCircle = nil
+    end
+end
+
+-- Indicador de status do aimbot (para modo Toggle)
+local toggleIndicator
+do
+    local success, text = pcall(function() return Drawing.new("Text") end)
+    if success and text then
+        toggleIndicator = text
+        toggleIndicator.Size = 16
+        toggleIndicator.Center = false
+        toggleIndicator.Outline = true
+        toggleIndicator.Color = Color3.fromRGB(0, 255, 0)
+        toggleIndicator.Position = Vector2.new(10, 10)
+        toggleIndicator.Text = ""
+        toggleIndicator.Visible = true
+    else
+        toggleIndicator = nil
     end
 end
 
@@ -783,7 +809,7 @@ local function buildGUI()
         end)
         updateWhitelistDisplay(listFrame)
 
-        -- SETTINGS TAB (espaçamento corrigido)
+        -- SETTINGS TAB
         createDropdown(settingsTab, "Modo do Aimbot", 30, {"Hold", "Toggle"}, AIMBOT_MODE, function(val)
             AIMBOT_MODE = val
             HOLDING_AIM = false
@@ -887,7 +913,6 @@ local function getInputObjectFromKey(keyString)
 end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    -- Ignora gameProcessed para a tecla do aimbot, mas mantém para o RightShift (para não atrapalhar a GUI)
     if input.KeyCode == Enum.KeyCode.RightShift then
         if MainFrame then
             MainFrame.Visible = not MainFrame.Visible
@@ -935,6 +960,21 @@ end)
 
 -- ==================== LOOP PRINCIPAL ====================
 RunService.RenderStepped:Connect(function()
+    -- Atualiza o indicador de toggle
+    if toggleIndicator then
+        if AIMBOT_MODE == "Toggle" then
+            if TOGGLE_ACTIVE then
+                toggleIndicator.Text = "Aimbot: ON"
+                toggleIndicator.Color = Color3.fromRGB(0, 255, 0)
+            else
+                toggleIndicator.Text = "Aimbot: OFF"
+                toggleIndicator.Color = Color3.fromRGB(255, 0, 0)
+            end
+        else
+            toggleIndicator.Text = ""
+        end
+    end
+
     -- FOV
     if fovCircle then
         local mousePos = UserInputService:GetMouseLocation()
