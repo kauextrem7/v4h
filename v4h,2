@@ -1,12 +1,9 @@
 --[[
-    AIM ASSIST - VERSÃO FINAL COMPLETA
-    - Modos: Hold (segurar) / Toggle (pressionar para ligar/desligar)
-    - Tecla configurável (mouse ou teclado)
-    - Indicador visual no modo Toggle
-    - Aimbot suave opcional
+    AIM ASSIST - GUI ESTILO SYREXGENESIS (COM AIMBOT SUAVE)
+    - Aimbot com suavização opcional (movimento suave)
     - ESP apenas na tela
-    - Whitelist visual com lista de jogadores
-    - FOV que segue o mouse
+    - Cores: laranja (whitelist), verde (time), amarelo (polícias), vermelho (inimigos)
+    - Time acima da cabeça em negrito
     - GUI arrastável, redimensionável
 --]]
 
@@ -23,10 +20,8 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- ==================== CONFIGURAÇÕES ====================
 local AIMBOT_ENABLED = false
-local AIMBOT_MODE = "Hold"            -- "Hold" ou "Toggle"
-local AIMBOT_KEY = "MouseButton2"     -- padrão: botão direito
-local SMOOTH_AIM = false
-local SMOOTH_SPEED = 0.3
+local SMOOTH_AIM = false          -- <--- NOVO: ativa suavização
+local SMOOTH_SPEED = 0.3          -- <--- NOVO: velocidade (0.05 = muito lento, 1 = instantâneo)
 local ESP_ENABLED = false
 local SHOW_NAME = true
 local SHOW_DISTANCE = true
@@ -34,6 +29,7 @@ local SHOW_TEAM = false
 local ESPLINE_ENABLED = false
 local FOV_ENABLED = false
 local TEAMCHECK_ENABLED = false
+local HOLDING_AIM = false
 
 local AIMBOT_TARGET = "head"
 local FOV_RADIUS = 150
@@ -41,9 +37,6 @@ local FOV_TRANSPARENCY = 0.5
 local ESP_DISTANCE = 200
 
 local Whitelist = {}
-
-local HOLDING_AIM = false
-local TOGGLE_ACTIVE = false
 
 -- ==================== DRAWING OBJECTS ====================
 local fovCircle
@@ -59,24 +52,6 @@ do
         fovCircle.Transparency = FOV_TRANSPARENCY
     else
         fovCircle = nil
-    end
-end
-
--- Indicador de status do aimbot (para modo Toggle)
-local toggleIndicator
-do
-    local success, text = pcall(function() return Drawing.new("Text") end)
-    if success and text then
-        toggleIndicator = text
-        toggleIndicator.Size = 16
-        toggleIndicator.Center = false
-        toggleIndicator.Outline = true
-        toggleIndicator.Color = Color3.fromRGB(0, 255, 0)
-        toggleIndicator.Position = Vector2.new(10, 10)
-        toggleIndicator.Text = ""
-        toggleIndicator.Visible = true
-    else
-        toggleIndicator = nil
     end
 end
 
@@ -105,7 +80,7 @@ local function createESP(plr)
     e.TeamText.Size = 14
     e.TeamText.Center = true
     e.TeamText.Outline = true
-    e.TeamText.Font = Drawing.Fonts.UI
+    e.TeamText.Font = Drawing.Fonts.UI  -- negrito
 end
 
 for _, p in ipairs(Players:GetPlayers()) do createESP(p) end
@@ -137,6 +112,7 @@ local function isDead(plr)
     return humanoid.Health <= 0
 end
 
+-- Cores: prioridade máxima para whitelist (laranja)
 local function getESPColor(plr)
     if isDead(plr) then return Color3.fromRGB(128, 128, 128) end
     if Whitelist[plr.Name:lower()] then return Color3.fromRGB(255, 165, 0) end
@@ -205,17 +181,8 @@ local function getTargetPart(character)
     return character:FindFirstChild("Head")
 end
 
-local function isAimbotActive()
-    if not AIMBOT_ENABLED then return false end
-    if AIMBOT_MODE == "Hold" then
-        return HOLDING_AIM
-    else
-        return TOGGLE_ACTIVE
-    end
-end
-
 local function getClosestToMouseFOV()
-    if not isAimbotActive() then return nil end
+    if not HOLDING_AIM or not AIMBOT_ENABLED then return nil end
     local mousePos = UserInputService:GetMouseLocation()
     local closest, bestDist = nil, math.huge
     for _, plr in pairs(Players:GetPlayers()) do
@@ -253,7 +220,7 @@ end
 -- ==================== GUI ====================
 local ScreenGui, MainFrame, TitleBar
 local selectedCard = nil
-local aimbotTab, espTab, fovTab, whitelistTab, settingsTab
+local aimbotTab, espTab, fovTab, whitelistTab
 local currentSize = {Width = 878, Height = 550}
 
 local bgColor = Color3.fromRGB(17, 18, 20)
@@ -353,13 +320,81 @@ local function createToggleButton(parent, text, yOffset, initialState, callback)
     return frame
 end
 
+local function createDropdown(parent, text, yOffset, options, currentValue, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 280, 0, 70)
+    frame.Position = UDim2.new(0.5, -140, 0, yOffset)
+    frame.BackgroundTransparency = 1
+    frame.Parent = parent
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 22)
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = textColor
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 16
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    local dropdownBtn = Instance.new("TextButton")
+    dropdownBtn.Size = UDim2.new(1, 0, 0, 38)
+    dropdownBtn.Position = UDim2.new(0, 0, 0, 30)
+    dropdownBtn.Text = currentValue:upper()
+    dropdownBtn.BackgroundColor3 = cardColor
+    dropdownBtn.BackgroundTransparency = 0.9
+    dropdownBtn.TextColor3 = textColor
+    dropdownBtn.Font = Enum.Font.GothamBold
+    dropdownBtn.TextSize = 14
+    dropdownBtn.BorderSizePixel = 0
+    dropdownBtn.Parent = frame
+    createCorner(dropdownBtn, 20)
+    createStroke(dropdownBtn, 1.5)
+    local expanded = false
+    local dropdownList = nil
+    dropdownBtn.MouseButton1Click:Connect(function()
+        if expanded then
+            if dropdownList then dropdownList:Destroy() end
+            expanded = false
+        else
+            dropdownList = Instance.new("Frame")
+            dropdownList.Size = UDim2.new(1, 0, 0, #options * 36)
+            dropdownList.Position = UDim2.new(0, 0, 0, 68)
+            dropdownList.BackgroundColor3 = bgColor
+            dropdownList.BorderSizePixel = 0
+            dropdownList.Parent = frame
+            createCorner(dropdownList, 16)
+            createStroke(dropdownList, 1.5)
+            for i, opt in ipairs(options) do
+                local optBtn = Instance.new("TextButton")
+                optBtn.Size = UDim2.new(1, 0, 0, 36)
+                optBtn.Position = UDim2.new(0, 0, 0, (i-1)*36)
+                optBtn.Text = opt:upper()
+                optBtn.BackgroundColor3 = cardColor
+                optBtn.BackgroundTransparency = 0.9
+                optBtn.TextColor3 = textColor
+                optBtn.Font = Enum.Font.Gotham
+                optBtn.TextSize = 13
+                optBtn.BorderSizePixel = 0
+                optBtn.Parent = dropdownList
+                optBtn.MouseButton1Click:Connect(function()
+                    callback(opt)
+                    dropdownBtn.Text = opt:upper()
+                    dropdownList:Destroy()
+                    expanded = false
+                end)
+            end
+            expanded = true
+        end
+    end)
+    return frame
+end
+
 local function createSlider(parent, text, yOffset, minVal, maxVal, currentVal, callback, isFloat)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 280, 0, 55)
     frame.Position = UDim2.new(0.5, -140, 0, yOffset)
     frame.BackgroundTransparency = 1
     frame.Parent = parent
-
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 0, 22)
     label.Position = UDim2.new(0, 0, 0, 0)
@@ -370,7 +405,6 @@ local function createSlider(parent, text, yOffset, minVal, maxVal, currentVal, c
     label.TextSize = 14
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
-
     local sliderBg = Instance.new("Frame")
     sliderBg.Size = UDim2.new(1, 0, 0, 4)
     sliderBg.Position = UDim2.new(0, 0, 0, 32)
@@ -378,14 +412,12 @@ local function createSlider(parent, text, yOffset, minVal, maxVal, currentVal, c
     sliderBg.BorderSizePixel = 0
     sliderBg.Parent = frame
     createCorner(sliderBg, 4)
-
     local fill = Instance.new("Frame")
     fill.Size = UDim2.new((currentVal - minVal) / (maxVal - minVal), 0, 1, 0)
     fill.BackgroundColor3 = accentColor
     fill.BorderSizePixel = 0
     fill.Parent = sliderBg
     createCorner(fill, 4)
-
     local handle = Instance.new("Frame")
     handle.Size = UDim2.new(0, 14, 0, 14)
     handle.Position = UDim2.new((currentVal - minVal) / (maxVal - minVal), -7, -5, 0)
@@ -393,9 +425,7 @@ local function createSlider(parent, text, yOffset, minVal, maxVal, currentVal, c
     handle.BorderSizePixel = 0
     handle.Parent = sliderBg
     createCorner(handle, 7)
-
     local dragging = false
-
     local function updateSliderFromMouse(mousePos)
         if not sliderBg or not sliderBg.Parent then return end
         local relX = math.clamp(mousePos.X - sliderBg.AbsolutePosition.X, 0, sliderBg.AbsoluteSize.X)
@@ -406,7 +436,6 @@ local function createSlider(parent, text, yOffset, minVal, maxVal, currentVal, c
         fill.Size = UDim2.new((newVal - minVal) / (maxVal - minVal), 0, 1, 0)
         handle.Position = UDim2.new((newVal - minVal) / (maxVal - minVal), -7, -5, 0)
     end
-
     handle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
@@ -424,90 +453,12 @@ local function createSlider(parent, text, yOffset, minVal, maxVal, currentVal, c
             updateSliderFromMouse(input.Position)
         end
     end)
-
     RunService.RenderStepped:Connect(function()
         if dragging then
             local mousePos = UserInputService:GetMouseLocation()
             updateSliderFromMouse(mousePos)
         end
     end)
-
-    return frame
-end
-
-local function createDropdown(parent, text, yOffset, options, currentValue, callback)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 280, 0, 70)
-    frame.Position = UDim2.new(0.5, -140, 0, yOffset)
-    frame.BackgroundTransparency = 1
-    frame.Parent = parent
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 0, 22)
-    label.Position = UDim2.new(0, 0, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = textColor
-    label.Font = Enum.Font.Gotham
-    label.TextSize = 16
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
-
-    local dropdownBtn = Instance.new("TextButton")
-    dropdownBtn.Size = UDim2.new(1, 0, 0, 38)
-    dropdownBtn.Position = UDim2.new(0, 0, 0, 30)
-    dropdownBtn.Text = currentValue:upper()
-    dropdownBtn.BackgroundColor3 = cardColor
-    dropdownBtn.BackgroundTransparency = 0.9
-    dropdownBtn.TextColor3 = textColor
-    dropdownBtn.Font = Enum.Font.GothamBold
-    dropdownBtn.TextSize = 14
-    dropdownBtn.BorderSizePixel = 0
-    dropdownBtn.Parent = frame
-    createCorner(dropdownBtn, 20)
-    createStroke(dropdownBtn, 1.5)
-
-    local expanded = false
-    local dropdownList = nil
-
-    dropdownBtn.MouseButton1Click:Connect(function()
-        if expanded then
-            if dropdownList then dropdownList:Destroy() end
-            expanded = false
-        else
-            dropdownList = Instance.new("Frame")
-            dropdownList.Size = UDim2.new(1, 0, 0, #options * 36)
-            dropdownList.Position = UDim2.new(0, 0, 0, 68)
-            dropdownList.BackgroundColor3 = bgColor
-            dropdownList.BorderSizePixel = 0
-            dropdownList.Parent = frame
-            createCorner(dropdownList, 16)
-            createStroke(dropdownList, 1.5)
-
-            for i, opt in ipairs(options) do
-                local optBtn = Instance.new("TextButton")
-                optBtn.Size = UDim2.new(1, 0, 0, 36)
-                optBtn.Position = UDim2.new(0, 0, 0, (i-1)*36)
-                optBtn.Text = opt:upper()
-                optBtn.BackgroundColor3 = cardColor
-                optBtn.BackgroundTransparency = 0.9
-                optBtn.TextColor3 = textColor
-                optBtn.Font = Enum.Font.Gotham
-                optBtn.TextSize = 13
-                optBtn.BorderSizePixel = 0
-                optBtn.Parent = dropdownList
-
-                optBtn.MouseButton1Click:Connect(function()
-                    callback(opt)
-                    dropdownBtn.Text = opt:upper()
-                    dropdownList:Destroy()
-                    expanded = false
-                end)
-            end
-            expanded = true
-        end
-    end)
-
     return frame
 end
 
@@ -524,7 +475,6 @@ local function createResizeButtons(parent)
     btnPlus.BorderSizePixel = 0
     btnPlus.Parent = parent
     createCorner(btnPlus, 8)
-
     local btnMinus = Instance.new("TextButton")
     btnMinus.Size = UDim2.new(0, btnSize, 0, btnSize)
     btnMinus.Position = UDim2.new(1, -btnSize - 15, 0, 10)
@@ -536,7 +486,6 @@ local function createResizeButtons(parent)
     btnMinus.BorderSizePixel = 0
     btnMinus.Parent = parent
     createCorner(btnMinus, 8)
-
     local step = 50
     btnPlus.MouseButton1Click:Connect(function()
         currentSize.Width = currentSize.Width + step
@@ -550,7 +499,6 @@ local function createResizeButtons(parent)
             MainFrame.Position = UDim2.new(pos.X.Scale, pos.X.Offset, 0, math.max(0, Camera.ViewportSize.Y - currentSize.Height))
         end
     end)
-
     btnMinus.MouseButton1Click:Connect(function()
         currentSize.Width = math.max(500, currentSize.Width - step)
         currentSize.Height = math.max(400, currentSize.Height - step)
@@ -672,7 +620,6 @@ local function buildGUI()
             espTab.Visible = false
             fovTab.Visible = false
             whitelistTab.Visible = false
-            settingsTab.Visible = false
         end
 
         local function selectESP()
@@ -680,7 +627,6 @@ local function buildGUI()
             espTab.Visible = true
             fovTab.Visible = false
             whitelistTab.Visible = false
-            settingsTab.Visible = false
         end
 
         local function selectFOV()
@@ -688,7 +634,6 @@ local function buildGUI()
             espTab.Visible = false
             fovTab.Visible = true
             whitelistTab.Visible = false
-            settingsTab.Visible = false
         end
 
         local function selectWhitelist()
@@ -696,26 +641,16 @@ local function buildGUI()
             espTab.Visible = false
             fovTab.Visible = false
             whitelistTab.Visible = true
-            settingsTab.Visible = false
             local listFrame = whitelistTab:FindFirstChild("ListFrame")
             if listFrame then
                 updateWhitelistDisplay(listFrame)
             end
         end
 
-        local function selectSettings()
-            aimbotTab.Visible = false
-            espTab.Visible = false
-            fovTab.Visible = false
-            whitelistTab.Visible = false
-            settingsTab.Visible = true
-        end
-
         local aimbotCard = createCard(cardsContainer, "AIMBOT", 0.0415, selectAimbot)
         local espCard = createCard(cardsContainer, "ESP", 0.17786, selectESP)
         local fovCard = createCard(cardsContainer, "FOV", 0.31422, selectFOV)
         local whitelistCard = createCard(cardsContainer, "WHITELIST", 0.45058, selectWhitelist)
-        local settingsCard = createCard(cardsContainer, "SETTINGS", 0.58694, selectSettings)
 
         local settingsArea = Instance.new("Frame")
         settingsArea.Size = UDim2.new(0, 450, 1, 0)
@@ -746,15 +681,10 @@ local function buildGUI()
         whitelistTab.Visible = false
         whitelistTab.Parent = settingsArea
 
-        settingsTab = Instance.new("Frame")
-        settingsTab.Size = UDim2.new(1, 0, 1, 0)
-        settingsTab.BackgroundTransparency = 1
-        settingsTab.Visible = false
-        settingsTab.Parent = settingsArea
-
         -- AIMBOT TAB
         createToggleButton(aimbotTab, "Aimbot", 30, AIMBOT_ENABLED, function(state) AIMBOT_ENABLED = state end)
         createToggleButton(aimbotTab, "Team Check", 100, TEAMCHECK_ENABLED, function(state) TEAMCHECK_ENABLED = state end)
+        -- NOVOS CONTROLES PARA AIMBOT SUAVE
         createToggleButton(aimbotTab, "Aimbot Suave", 170, SMOOTH_AIM, function(state) SMOOTH_AIM = state end)
         createSlider(aimbotTab, "Velocidade Suave", 240, 0.05, 1, SMOOTH_SPEED, function(val) SMOOTH_SPEED = val end, true)
         createDropdown(aimbotTab, "Puxar para:", 310, {"head", "pescoço", "peito", "pernas"}, AIMBOT_TARGET, function(val) AIMBOT_TARGET = val end)
@@ -808,20 +738,6 @@ local function buildGUI()
             updateWhitelistDisplay(listFrame)
         end)
         updateWhitelistDisplay(listFrame)
-
-        -- SETTINGS TAB
-        createDropdown(settingsTab, "Modo do Aimbot", 30, {"Hold", "Toggle"}, AIMBOT_MODE, function(val)
-            AIMBOT_MODE = val
-            HOLDING_AIM = false
-            TOGGLE_ACTIVE = false
-        end)
-
-        createDropdown(settingsTab, "Tecla do Aimbot", 120, {
-            "MouseButton2", "MouseButton1", "MouseButton3",
-            "Q", "E", "R", "F", "LeftShift", "LeftControl", "LeftAlt", "C"
-        }, AIMBOT_KEY, function(val)
-            AIMBOT_KEY = val
-        end)
 
         -- Botão fechar (X)
         local closeBtn = Instance.new("TextButton")
@@ -898,57 +814,21 @@ end
 buildGUI()
 
 -- ==================== INPUT ====================
-local function getInputObjectFromKey(keyString)
-    if keyString:find("MouseButton") then
-        local btnNum = tonumber(keyString:match("MouseButton(%d)"))
-        if btnNum == 1 then return Enum.UserInputType.MouseButton1
-        elseif btnNum == 2 then return Enum.UserInputType.MouseButton2
-        elseif btnNum == 3 then return Enum.UserInputType.MouseButton3
-        end
-    else
-        local keyEnum = Enum.KeyCode[keyString]
-        if keyEnum then return keyEnum end
-    end
-    return Enum.UserInputType.MouseButton2
-end
-
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
         if MainFrame then
             MainFrame.Visible = not MainFrame.Visible
         else
             buildGUI()
         end
-        return
-    end
-
-    local targetInput = getInputObjectFromKey(AIMBOT_KEY)
-    local isTarget = false
-    if targetInput.EnumType == Enum.EnumType.UserInputType then
-        isTarget = input.UserInputType == targetInput
-    else
-        isTarget = input.KeyCode == targetInput
-    end
-
-    if isTarget then
-        if AIMBOT_MODE == "Hold" then
-            HOLDING_AIM = true
-        else
-            TOGGLE_ACTIVE = not TOGGLE_ACTIVE
-        end
+    elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+        HOLDING_AIM = true
     end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-    local targetInput = getInputObjectFromKey(AIMBOT_KEY)
-    local isTarget = false
-    if targetInput.EnumType == Enum.EnumType.UserInputType then
-        isTarget = input.UserInputType == targetInput
-    else
-        isTarget = input.KeyCode == targetInput
-    end
-
-    if isTarget and AIMBOT_MODE == "Hold" then
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
         HOLDING_AIM = false
     end
 end)
@@ -958,23 +838,8 @@ LocalPlayer.CharacterAdded:Connect(function()
     Camera = Workspace.CurrentCamera
 end)
 
--- ==================== LOOP PRINCIPAL ====================
+-- ==================== LOOP PRINCIPAL (ESP APENAS NA TELA + AIMBOT SUAVE) ====================
 RunService.RenderStepped:Connect(function()
-    -- Atualiza o indicador de toggle
-    if toggleIndicator then
-        if AIMBOT_MODE == "Toggle" then
-            if TOGGLE_ACTIVE then
-                toggleIndicator.Text = "Aimbot: ON"
-                toggleIndicator.Color = Color3.fromRGB(0, 255, 0)
-            else
-                toggleIndicator.Text = "Aimbot: OFF"
-                toggleIndicator.Color = Color3.fromRGB(255, 0, 0)
-            end
-        else
-            toggleIndicator.Text = ""
-        end
-    end
-
     -- FOV
     if fovCircle then
         local mousePos = UserInputService:GetMouseLocation()
@@ -1046,7 +911,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Aimbot
+    -- Aimbot (com suavização)
     local target = getClosestToMouseFOV()
     if target then
         local targetCF = CFrame.lookAt(Camera.CFrame.Position, target.Position)
